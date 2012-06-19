@@ -1,4 +1,4 @@
 QICQ
 ====
 
-Qt based for talk to each each
+Qt based simple client for talking to each each
