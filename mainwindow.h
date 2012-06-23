@@ -30,6 +30,8 @@ private slots:
     void UserListClicked(QModelIndex idx);
 
     void ShowAsks(User frd);
+
+    void DeleteMsgBox(int mid);
     
 private:
     Ui::MainWindow *ui;

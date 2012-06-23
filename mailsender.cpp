@@ -2,7 +2,10 @@
 
 MailSender::MailSender(QString host)
 {
-    tcpSocket.connectToHost(QHostAddress(host),25);
+    //QHostInfo::lookupHost( host,this,SLOT( ConnectToHost(QHostInfo) ) );
+    tcpSocket.connectToHost( host ,25);
+    if( !tcpSocket.waitForConnected(-1) )
+        qDebug() << tcpSocket.errorString();
 }
 
 void MailSender::Send(QString rcv, QString snd, QString usr, QString pwd, QString subject, QString content)
@@ -22,6 +25,8 @@ void MailSender::Send(QString rcv, QString snd, QString usr, QString pwd, QStrin
 
 void MailSender::communication(QString msg)
 {
+    qDebug() << msg;
+
     tcpSocket.write(msg.toUtf8());
     tcpSocket.flush();
 

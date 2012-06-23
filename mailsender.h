@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QHostAddress>
 
+
 class MailSender
 {
 public:

@@ -28,10 +28,17 @@ MainWindow::~MainWindow()
 
     int size = mbs.size();
     for(int i = 0;i < size;i++)
-        delete mbs[i];
+        if( mbs[i] )
+            delete mbs[i];
 
     delete usersStandardItemModel;
     delete ui;
+}
+
+void MainWindow::DeleteMsgBox(int mid)
+{
+    delete mbs[ mid ];
+    mbs[ mid ] = NULL;
 }
 
 void MainWindow::beginMain(QString name, QString email)
@@ -58,6 +65,7 @@ void MainWindow::ShowAsks(User frd)
         server->OkToTalk(frd);
 
         MessageBox* mb = new MessageBox();
+        connect( mb,SIGNAL( MsgBoxClosed(int) ),this,SLOT( DeleteMsgBox(int) ) );
 
         int port = mb->BindPort();
         users.data[ 0 ].port = port;
@@ -128,6 +136,7 @@ void MainWindow::UserListClicked(QModelIndex idx)
         return;
 
     MessageBox* mb = new MessageBox();
+    connect( mb,SIGNAL( MsgBoxClosed(int) ),this,SLOT( DeleteMsgBox(int) ) );
     qDebug() << "Start talking to " << idx.data().toString();
 
     int port = mb->BindPort();

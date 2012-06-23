@@ -9,6 +9,11 @@ MessageBox::MessageBox( QWidget *parent) :
 
 }
 
+void MessageBox::closeEvent(QCloseEvent *e)
+{
+    emit MsgBoxClosed( frd.mid );
+}
+
 int MessageBox::BindPort()
 {
     int port = TALK_PORT;
@@ -43,11 +48,15 @@ void MessageBox::Init(User self, User frd)
 
     msgStandardItemModel = new QStandardItemModel(this);
     ui->listView->setModel( msgStandardItemModel );
+
+    hostinfo = new QHostInfo();
 }
 
 MessageBox::~MessageBox()
 {
     timer.stop();
+    delete hostinfo;
+    delete msgStandardItemModel;
     delete ui;
 }
 
@@ -64,6 +73,30 @@ void MessageBox::Send(QString msg)
     timer.start();
 }
 
+void MessageBox::SendMail(QHostInfo hostaddr)
+{
+    qDebug() << "DNS lookup finish: ";
+    QList<QHostAddress> adds = hostaddr.addresses();
+    if( adds.empty() )
+        qDebug() << hostaddr.errorString();
+    else
+        for(int i = 0;i < adds.size();i++)
+            qDebug() << adds[ i ].toString();
+
+    MailSender ms( adds[ 0 ].toString() );
+    QString content = "You have unreaded message from " + self.name + "\r\n";
+
+    for(int i = 0;i < msgCache.size();i++)
+        content += msgCache[i].remove(0,9) + "\r\n";
+
+    ms.Send(frd.mail,"hitjisuanji09@163.com","hitjisuanji09","123456","You have unreaded message!",content);
+
+    msgCache.clear();
+    serial = 0;
+    timer.stop();
+    resend_times = 0;
+}
+
 void MessageBox::SendAgain()
 {
     int size = msgCache.size();
@@ -75,9 +108,20 @@ void MessageBox::SendAgain()
 
         resend_times++;
     }
-    if( resend_times > 10 )
+    if( resend_times > 5 )
     {
         qDebug() << "Seem that user offline";
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, "SendEmail?",
+                                      "Wann to send an email to him/her?",
+                                      QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::Yes)
+        {
+            hostinfo->lookupHost("smtp.163.com",this,SLOT( SendMail(QHostInfo)) );
+        }
+        else if (reply == QMessageBox::No)
+        {
+        }
     }
     timer.stop();
     timer.start();
@@ -106,6 +150,7 @@ void MessageBox::ReadDataGram()
             {
                 msgCache.clear();
                 serial = 0;
+                resend_times = 0;
                 timer.stop();
             }else
                 serial = ack;

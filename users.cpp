@@ -34,7 +34,7 @@ bool Users::Exist(User user)
 void Users::Save(QString filename)
 {
     QFile file( filename );
-    if ( file.open( IO_WriteOnly ) ) {
+    if ( file.open( QFile::WriteOnly ) ) {
         QTextStream stream( &file );
 
         int size = data.size();
@@ -55,7 +55,7 @@ void Users::Save(QString filename)
 void Users::Load(QString filename)
 {
     QFile file( filename );
-    if ( file.open( IO_ReadOnly ) ) {
+    if ( file.open( QFile::ReadOnly ) ) {
         QTextStream stream( &file );
 
         User tmp;

@@ -9,11 +9,13 @@
 #include <QStandardItemModel>
 #include <QKeySequence>
 #include <QMessageBox>
+#include <QHostInfo>
 
 #include "users.h"
+#include "mailsender.h"
 
 #define TALK_PORT 45454
-#define TTL 5000
+#define TTL 3000
 
 namespace Ui {
 class MessageBox;
@@ -26,6 +28,7 @@ class MessageBox : public QWidget
 public:
     explicit MessageBox(QWidget *parent = 0);
     ~MessageBox();
+    void closeEvent(QCloseEvent *e);
     void Send(QString msg);
     void TalkToMe();
 
@@ -37,9 +40,11 @@ private slots:
     void SendAgain();
     void SendMsg();
     void ReciveMsg(QStringList& msgs);
+    void SendMail(QHostInfo hostaddr);
 
 signals:
     void MsgRecived(QStringList& msgs);
+    void MsgBoxClosed(int mid);
 private:
     void SendACK(int ack_num);
 private:
@@ -60,6 +65,8 @@ private:
     Ui::MessageBox *ui;
 
     QStandardItemModel* msgStandardItemModel;
+
+    QHostInfo* hostinfo;
 };
 
 #endif // MESSAGEBOX_H
