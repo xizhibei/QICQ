@@ -107,16 +107,16 @@ void MainWindow::ShowUsers(QList<User> &users)
 
     for(int i = 0;i < size;i++)
     {
-        QStandardItem* item = new QStandardItem(this->users.data[i].name);
+        QStandardItem* item = new QStandardItem(this->users.data[i].name + " <" + this->users.data[i].mail + ">");
         item->setEditable(false);
-        //        if( i % 2 == 1 )
-        //        {
-        //            QLinearGradient   linearGrad(QPointF(0,0),QPointF(200,300));
-        //            linearGrad.setColorAt(0,Qt::darkGreen);
-        //            linearGrad.setColorAt(1,Qt::yellow);
-        //            QBrush brush(linearGrad);
-        //            item->setBackground(brush);
-        //        }
+        if( i != 0 )
+        {
+            QLinearGradient   linearGrad(QPointF(0,0),QPointF(200,300));
+            linearGrad.setColorAt( 0,Qt::white );
+            linearGrad.setColorAt( 1,Qt::red );
+            QBrush brush(linearGrad);
+            item->setBackground(brush);
+        }
 
         usersStandardItemModel->appendRow(item);
     }

@@ -10,12 +10,23 @@
 #include <QKeySequence>
 #include <QMessageBox>
 #include <QHostInfo>
+#include <QDateTime>
 
 #include "users.h"
 #include "mailsender.h"
 
 #define TALK_PORT 45454
 #define TTL 3000
+
+struct MsgBody{
+    QString msg;
+    int serial;
+    MsgBody(QString _msg,int _serial)
+    {
+        msg = _msg;
+        serial = _serial;
+    }
+};
 
 namespace Ui {
 class MessageBox;
@@ -56,11 +67,13 @@ private:
 //    QString username;
 //    QString friendname;
 
-    int serial;//消息编号
+    int serial;//发送消息编号
+    int ack_msg_num;//收到消息编号
     QTimer timer;
     int resend_times;
 
-    QStringList msgCache;
+    //QStringList msgCache;
+    QList<MsgBody> msgCache;
 
     Ui::MessageBox *ui;
 

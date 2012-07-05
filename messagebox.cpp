@@ -49,6 +49,8 @@ void MessageBox::Init(User self, User frd)
     msgStandardItemModel = new QStandardItemModel(this);
     ui->listView->setModel( msgStandardItemModel );
 
+    ui->frdlabel->setText( "You are talking to " + frd.name + " <" + frd.mail + ">"  );
+
     hostinfo = new QHostInfo();
 }
 
@@ -63,12 +65,14 @@ MessageBox::~MessageBox()
 void MessageBox::Send(QString msg)
 {
     QString tmp;
-    msg = QString( "SERIAL" ) + tmp.sprintf("%3d", msgCache.size()) + msg;
+    MsgBody mb(msg,serial++);
+
+    msg = tmp.sprintf("SERIAL%d\r\n", mb.serial) + mb.msg;
     QByteArray data = msg.toUtf8();
     udpSocket.writeDatagram( data.data(),data.size(),QHostAddress( frd.addr ),frd.port );
 
     qDebug() << "Send msg :" << msg;
-    msgCache.append(msg);
+    msgCache.append(mb);
     timer.stop();
     timer.start();
 }
@@ -87,12 +91,11 @@ void MessageBox::SendMail(QHostInfo hostaddr)
     QString content = "You have unreaded message from " + self.name + "\r\n";
 
     for(int i = 0;i < msgCache.size();i++)
-        content += msgCache[i].remove(0,9) + "\r\n";
+        content += msgCache[i].msg + "\r\n";
 
     ms.Send(frd.mail,"hitjisuanji09@163.com","hitjisuanji09","123456","You have unreaded message!",content);
 
     msgCache.clear();
-    serial = 0;
     timer.stop();
     resend_times = 0;
 }
@@ -100,11 +103,12 @@ void MessageBox::SendMail(QHostInfo hostaddr)
 void MessageBox::SendAgain()
 {
     int size = msgCache.size();
-    for(int i = serial;i < size;i++)
+    for(int i = 0;i < size;i++)
     {
-        QByteArray data = msgCache[i].toUtf8();
+        QString tmp;
+        QByteArray data = ( tmp.sprintf("SERIAL%d\r\n", msgCache[i].serial) + msgCache[i].msg ).toUtf8();
         udpSocket.writeDatagram( data.data(),data.size(),QHostAddress( frd.addr ),frd.port );
-        qDebug() << "Send msg again:" << msgCache[i];
+        qDebug() << "Send msg again:" << msgCache[i].msg;
 
         resend_times++;
     }
@@ -139,38 +143,64 @@ void MessageBox::ReadDataGram()
         data.resize( udpSocket.pendingDatagramSize() );
         udpSocket.readDatagram( data.data(),data.size() );
 
-        qDebug() << "Recive msg: " << data;
+        qDebug() << "Msgbox Recive data: " << data;
 
         if( data.startsWith( "ACK" ) )
         {
             data.remove(0,3);
             int ack = data.toInt();
             qDebug() << "Get ack: " << ack;
-            if( ack + 1 == msgCache.size() )
+            if( ack == serial )
             {
                 msgCache.clear();
-                serial = 0;
                 resend_times = 0;
                 timer.stop();
-            }else
-                serial = ack;
+            }
+            else if( ack < serial )
+            {
+                for(int m = 0;m < msgCache.size();m++)
+                {
+                    if( msgCache[ m ].serial <= ack )
+                    {
+                        msgCache.removeAt( m );
+                        m--;
+                    }
+                }
+            }
         }
         else if( data.startsWith( "SERIAL" ) )
         {
             data.remove(0,6);
+            int dsize = data.size();
+            int d;
             QString tmp;
-            if(data[0] != ' ')
-                tmp += data[0];
-            if(data[1] != ' ')
-                tmp += data[1];
-            if(data[2] != ' ')
-                tmp += data[2];
+            for(d = 0;d < dsize && data[ d ] != '\r' ;d++)
+            {
+                tmp += data[ d ];
+            }
+//            QString tmp;
+//            if(data[0] != ' ')
+//                tmp += data[0];
+//            if(data[1] != ' ')
+//                tmp += data[1];
+//            if(data[2] != ' ')
+//                tmp += data[2];
 
             send_ack_num = tmp.toInt();
-            qDebug() << "Get serial: " << send_ack_num;
-            data.remove(0,3);
 
-            msgs.append(data);
+            qDebug() << "Get serial: " << send_ack_num;
+
+            if( ack_msg_num >= send_ack_num )//收到重复数据
+            {
+                qDebug() << "Same msg again!";
+                continue;
+            }
+
+            ack_msg_num = send_ack_num;//update ack_msg_num
+
+            data.remove( 0,d + 2 );// remove \r\n
+
+            msgs.append( data );
             msg_recived = true;
         }
         else if( data.startsWith( "Ok to talk" ) )
@@ -186,14 +216,15 @@ void MessageBox::ReadDataGram()
         }
     }
     if( send_ack_num != -1 )
-        SendACK(send_ack_num);
+        SendACK( send_ack_num );
+
     if( msg_recived )
-        emit MsgRecived(msgs);
+        emit MsgRecived( msgs );
 }
 
 void MessageBox::SendACK(int ack_num)
 {
-    QByteArray data = (QString("ACK") + QString::number(ack_num)).toUtf8();
+    QByteArray data = ( QString("ACK") + QString::number(ack_num) ).toUtf8();
     udpSocket.writeDatagram( data.data(),data.size(),QHostAddress( frd.addr ),frd.port );
 }
 
@@ -203,9 +234,9 @@ void MessageBox::SendMsg()
     {
         Send( ui->msgtextEdit->toPlainText() );
 
-        QStandardItem* item = new QStandardItem( self.name );
+        QStandardItem* item = new QStandardItem( self.name + " " + QDateTime::currentDateTime().toString("hh:mm:ss"));
 
-        QLinearGradient   linearGrad(QPointF(0,0),QPointF(200,300));
+        QLinearGradient linearGrad(QPointF(0,0),QPointF(200,300));
         linearGrad.setColorAt(0,Qt::darkGreen);
         linearGrad.setColorAt(1,Qt::yellow);
         QBrush brush(linearGrad);
@@ -226,14 +257,14 @@ void MessageBox::SendMsg()
 void MessageBox::ReciveMsg(QStringList &msgs)
 {
     int size = msgs.size();
+
     for(int i = 0;i < size;i++)
     {
-
-        QStandardItem* item = new QStandardItem( frd.name );
+        QStandardItem* item = new QStandardItem( frd.name + " " + QDateTime::currentDateTime().toString("hh:mm:ss") );
 
         QLinearGradient linearGrad(QPointF(0,0),QPointF(200,300));
-        linearGrad.setColorAt(0,Qt::darkGreen);
-        linearGrad.setColorAt(1,Qt::yellow);
+        linearGrad.setColorAt( 0,Qt::white );
+        linearGrad.setColorAt( 1,Qt::yellow );
         QBrush brush(linearGrad);
         item->setBackground(brush);
 
